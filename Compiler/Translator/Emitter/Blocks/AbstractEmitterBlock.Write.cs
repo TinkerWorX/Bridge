@@ -81,6 +81,14 @@ namespace Bridge.Translator
             {
                 s = "Bridge.Decimal(" + this.DecimalConstant((decimal)value) + ")";
             }
+            else if (value is long)
+            {
+                s = "Bridge.Long(" + this.LongConstant((long)value) + ")";
+            }
+            else if (value is ulong)
+            {
+                s = "Bridge.ULong(" + this.ULongConstant((ulong)value) + ")";
+            }
             else
             {
                 s = this.Emitter.ToJavaScript(value);
@@ -116,6 +124,32 @@ namespace Bridge.Translator
             }
 
             return s;
+        }
+
+        public string LongConstant(long value)
+        {
+            if (value > Int32.MaxValue || value < Int32.MinValue)
+            {
+                int l1 = (int)(value & uint.MaxValue);
+                int l2 = (int)(value >> 32);
+
+                return this.Emitter.ToJavaScript(new int[] { l1, l2 });    
+            }
+
+            return this.Emitter.ToJavaScript(value);
+        }
+
+        public string ULongConstant(ulong value)
+        {
+            if (value > UInt32.MaxValue)
+            {
+                int l1 = (int)(value & uint.MaxValue);
+                int l2 = (int)(value >> 32);
+
+                return this.Emitter.ToJavaScript(new int[] { l1, l2 });
+            }
+
+            return this.Emitter.ToJavaScript(value);
         }
 
         public virtual void WriteComma()

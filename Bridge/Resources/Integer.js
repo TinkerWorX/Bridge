@@ -73,13 +73,14 @@
                     decimalSeparator = nf.numberDecimalSeparator,
                     groupSeparator = nf.numberGroupSeparator,
                     isDecimal = number instanceof Bridge.Decimal,
-                    isNeg = isDecimal ? number.isNegative() : number < 0,
+                    isLong = number instanceof Bridge.Long || number instanceof Bridge.ULong,
+                    isNeg = isDecimal || isLong ? number.isNegative() : number < 0,
                     match,
                     precision,
                     groups,
                     fs;
 
-                if (isDecimal ? !number.isFinite() : !isFinite(number)) {
+                if (!isLong && (isDecimal ? !number.isFinite() : !isFinite(number))) {
                     return Number.NEGATIVE_INFINITY === number || (isDecimal && isNeg) ? nf.negativeInfinitySymbol : nf.positiveInfinitySymbol;
                 }
 
@@ -106,14 +107,14 @@
                         case "G":
                         case "E":
                             var exponent = 0,
-                                coefficient = isDecimal ? number.abs() : Math.abs(number),
+                                coefficient = isDecimal || isLong ? number.abs() : Math.abs(number),
                                 exponentPrefix = match[1],
                                 exponentPrecision = 3,
                                 minDecimals,
                                 maxDecimals;
 
-                            while (isDecimal ? coefficient.gte(10) : (coefficient >= 10)) {
-                                if (isDecimal) {
+                            while (isDecimal || isLong ? coefficient.gte(10) : (coefficient >= 10)) {
+                                if (isDecimal || isLong) {
                                     coefficient = coefficient.div(10);
                                 } else {
                                     coefficient /= 10;
@@ -122,8 +123,8 @@
                                 exponent++;
                             }
 
-                            while (isDecimal ? (coefficient.ne(0) && coefficient.lt(1)) : (coefficient !== 0 && coefficient < 1)) {
-                                if (isDecimal) {
+                            while (isDecimal || isLong ? (coefficient.ne(0) && coefficient.lt(1)) : (coefficient !== 0 && coefficient < 1)) {
+                                if (isDecimal || isLong) {
                                     coefficient = coefficient.mul(10);
                                 } else {
                                     coefficient *= 10;
@@ -154,7 +155,7 @@
                             }
 
                             if (isNeg) {
-                                if (isDecimal) {
+                                if (isDecimal || isLong) {
                                     coefficient = coefficient.mul(-1);
                                 } else {
                                     coefficient *= -1;
@@ -169,7 +170,7 @@
 
                             return this.defaultFormat(number * 100, 1, precision, precision, nf, false, "percent");
                         case "X":
-                            var result = isDecimal ? number.round().value.toString(16) : Math.round(number).toString(16);
+                            var result = isDecimal ? number.round().value.toString(16) : (isLong ? number.value.toString(16) : Math.round(number).toString(16));
 
                             if (match[1] === "X") {
                                 result = result.toUpperCase();
@@ -189,7 +190,7 @@
 
                             return this.defaultFormat(number, 1, precision, precision, nf, false, "currency");
                         case "R":
-                            return isDecimal ? (number.toString()) : ("" + number);
+                            return isDecimal || isLong ? (number.toString()) : ("" + number);
                     }
                 }
 
@@ -206,7 +207,7 @@
                         index--;
                     }
 
-                    if (isDecimal) {
+                    if (isDecimal || isLong) {
                         number = number.div(Math.pow(1000, count));
                     } else {
                         number /= Math.pow(1000, count);
@@ -214,7 +215,7 @@
                 }
 
                 if (format.indexOf("%") !== -1) {
-                    if (isDecimal) {
+                    if (isDecimal || isLong) {
                         number = number.mul(100);
                     } else {
                         number *= 100;
@@ -223,8 +224,8 @@
 
                 groups = format.split(";");
 
-                if ((isDecimal ? number.lt(0) : (number < 0)) && groups.length > 1) {
-                    if (isDecimal) {
+                if ((isDecimal || isLong ? number.lt(0) : (number < 0)) && groups.length > 1) {
+                    if (isDecimal || isLong) {
                         number = number.mul(-1);
                     } else {
                         number *= -1;
@@ -232,7 +233,7 @@
                     
                     format = groups[1];
                 } else {
-                    format = groups[(isDecimal ? number.ne(0) : !number) && groups.length > 2 ? 2 : 0];
+                    format = groups[(isDecimal || isLong ? number.ne(0) : !number) && groups.length > 2 ? 2 : 0];
                 }
 
                 return this.customFormat(number, format, nf, !format.match(/^[^\.]*[0#],[0#]/));
@@ -258,12 +259,15 @@
                     sep,
                     buffer = "",
                     isDecimal = number instanceof Bridge.Decimal,
-                    isNeg = isDecimal ? number.isNegative() : number < 0;
+                    isLong = number instanceof Bridge.Long || number instanceof Bridge.ULong,
+                    isNeg = isDecimal || isLong ? number.isNegative() : number < 0;
 
                 roundingFactor = Math.pow(10, maxDecLen);
 
                 if (isDecimal) {
                     str = number.abs().mul(roundingFactor).round().div(roundingFactor).toString();
+                } if (isLong) {
+                    str = number.abs().mul(roundingFactor).div(roundingFactor).toString();
                 } else {
                     str = "" + (Math.round(Math.abs(number) * roundingFactor) / roundingFactor);
                 }
@@ -371,7 +375,8 @@
                     groupCfg,
                     buffer = "",
                     isDecimal = number instanceof Bridge.Decimal,
-                    isNeg = isDecimal ? number.isNegative() : number < 0;
+                    isLong = number instanceof Bridge.Long || number instanceof Bridge.ULong,
+                    isNeg = isDecimal || isLong ? number.isNegative() : number < 0;
 
                 name = "number";
 
@@ -420,6 +425,8 @@
 
                 if (isDecimal) {
                     number = number.abs().mul(roundingFactor).round().div(roundingFactor).toString();
+                } if (isLong) {
+                    number = number.abs().mul(roundingFactor).div(roundingFactor).toString();
                 } else {
                     number = "" + (Math.round(Math.abs(number) * roundingFactor) / roundingFactor);
                 }

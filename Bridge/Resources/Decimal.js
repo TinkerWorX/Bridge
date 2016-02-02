@@ -48,6 +48,10 @@
             return d.value;
         }
 
+        if (d instanceof Bridge.Long || d instanceof Bridge.ULong) {
+            return new Bridge.$Decimal(d.toString());
+        }
+
         return new Bridge.$Decimal(d);
     };
 

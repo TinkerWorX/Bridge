@@ -523,6 +523,7 @@ namespace Bridge.Translator
                         {
                             bool isNullable = NullableType.IsNullable(member.Member.ReturnType);
                             bool isDecimal = Helpers.IsDecimalType(member.Member.ReturnType, this.Emitter.Resolver);
+                            bool isLong = Helpers.Is64Type(member.Member.ReturnType, this.Emitter.Resolver);
 
                             if (isStatement)
                             {
@@ -539,7 +540,7 @@ namespace Bridge.Translator
                                     this.WriteOpenParentheses();
                                 }
 
-                                if (isDecimal)
+                                if (isDecimal || isLong)
                                 {
                                     if (isNullable)
                                     {
@@ -727,7 +728,7 @@ namespace Bridge.Translator
                                     this.WriteOpenParentheses();
                                 }
 
-                                if (isDecimal)
+                                if (isDecimal || isLong)
                                 {
                                     if (isNullable)
                                     {

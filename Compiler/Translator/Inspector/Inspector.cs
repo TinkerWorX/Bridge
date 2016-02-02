@@ -93,12 +93,16 @@ namespace Bridge.Translator
                     case KnownTypeCode.Decimal:
                         return 0m;
 
+                    case KnownTypeCode.Int64:
+                        return 0L;
+
+                    case KnownTypeCode.UInt64:
+                        return 0UL;
+
                     case KnownTypeCode.Int16:
                     case KnownTypeCode.Int32:
-                    case KnownTypeCode.Int64:
                     case KnownTypeCode.UInt16:
                     case KnownTypeCode.UInt32:
-                    case KnownTypeCode.UInt64:
                     case KnownTypeCode.Byte:
                     case KnownTypeCode.Double:
                     case KnownTypeCode.SByte:
@@ -132,15 +136,27 @@ namespace Bridge.Translator
 
         public static object GetDefaultFieldValue(IType type)
         {
+            if (type.IsKnownType(KnownTypeCode.Decimal))
+            {
+                return 0m;
+            }
+
+            if (type.IsKnownType(KnownTypeCode.Int64))
+            {
+                return 0L;
+            }
+
+            if (type.IsKnownType(KnownTypeCode.UInt64))
+            {
+                return 0UL;
+            }
+
             if (type.IsKnownType(KnownTypeCode.Int16) ||
                 type.IsKnownType(KnownTypeCode.Int32) ||
-                type.IsKnownType(KnownTypeCode.Int64) ||
                 type.IsKnownType(KnownTypeCode.UInt16) ||
                 type.IsKnownType(KnownTypeCode.UInt32) ||
-                type.IsKnownType(KnownTypeCode.UInt64) ||
                 type.IsKnownType(KnownTypeCode.Byte) ||
                 type.IsKnownType(KnownTypeCode.Double) ||
-                type.IsKnownType(KnownTypeCode.Decimal) ||
                 type.IsKnownType(KnownTypeCode.SByte) ||
                 type.IsKnownType(KnownTypeCode.Single) ||
                 type.IsKnownType(KnownTypeCode.Enum))

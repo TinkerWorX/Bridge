@@ -34,7 +34,8 @@ namespace System
 
         public static extern double Abs(double x);
 
-        public static extern double Abs(long x);
+        [Template("{l}.abs()")]
+        public static extern long Abs(long x);
 
         [Template("{l}.abs()")]
         public static extern decimal Abs(decimal l);
@@ -43,9 +44,11 @@ namespace System
 
         public static extern double Max(params double[] values);
 
-        public static extern double Max(params long[] values);
+        [Template("Bridge.Long.max({*values})")]
+        public static extern long Max(params long[] values);
 
-        public static extern double Max(params ulong[] values);
+        [Template("Bridge.ULong.max({*values})")]
+        public static extern ulong Max(params ulong[] values);
 
         [Template("Bridge.Decimal.max({*values})")]
         public static extern decimal Max(params decimal[] values);
@@ -54,9 +57,11 @@ namespace System
 
         public static extern double Min(params double[] values);
 
-        public static extern double Min(params long[] values);
+        [Template("Bridge.Long.min({*values})")]
+        public static extern long Min(params long[] values);
 
-        public static extern double Min(params ulong[] values);
+        [Template("Bridge.ULong.min({*values})")]
+        public static extern ulong Min(params ulong[] values);
 
         [Template("Bridge.Decimal.min({*values})")]
         public static extern decimal Min(params decimal[] values);
@@ -160,7 +165,7 @@ namespace System
         [Template("Bridge.Math.divRem({a}, {b}, {result})")]
         public static extern int DivRem(int a, int b, out int result);
 
-        [Template("Bridge.Math.divRem({a}, {b}, {result})")]
+        [Template("Bridge.Long.divRem({a}, {b}, {result})")]
         public static extern long DivRem(long a, long b, out long result);
     }
 }

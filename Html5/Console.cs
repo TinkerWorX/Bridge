@@ -40,8 +40,11 @@ namespace Bridge.Html5
         [Template("console.log({value})")]
         public static extern void WriteLine(int value);
 
-        [Template("console.log({value})")]
+        [Template("console.log({value}.toString())")]
         public static extern void WriteLine(long value);
+
+        [Template("console.log({value} && {value}.toString())")]
+        public static extern void WriteLine(long? value);
 
         [Template("console.log({value})")]
         public static extern void WriteLine(object value);
@@ -49,8 +52,11 @@ namespace Bridge.Html5
         [Template("console.log({value})")]
         public static extern void WriteLine(uint value);
 
-        [Template("console.log({value})")]
+        [Template("console.log({value}.toString())")]
         public static extern void WriteLine(ulong value);
+
+        [Template("console.log({value} && {value}.toString())")]
+        public static extern void WriteLine(ulong? value);
 
         /// <summary>
         /// ReadLine uses the native JavaScript prompt() to dialog with an optional message prompting the user to input some text.

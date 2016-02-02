@@ -83,6 +83,8 @@ namespace Bridge.Translator
             var expectedType = this.Emitter.Resolver.Resolver.GetExpectedType(unaryOperatorExpression);
             bool isDecimalExpected = Helpers.IsDecimalType(expectedType, this.Emitter.Resolver);
             bool isDecimal = Helpers.IsDecimalType(resolveOperator.Type, this.Emitter.Resolver);
+            bool isLongExpected = Helpers.Is64Type(expectedType, this.Emitter.Resolver);
+            bool isLong = Helpers.Is64Type(resolveOperator.Type, this.Emitter.Resolver);
             OperatorResolveResult orr = resolveOperator as OperatorResolveResult;
             int count = this.Emitter.Writers.Count;
 
@@ -99,6 +101,23 @@ namespace Bridge.Translator
             }
 
             if (isDecimal && isDecimalExpected)
+            {
+                this.HandleDecimal(resolveOperator);
+                return;
+            }
+
+            if (this.ResolveOperator(unaryOperatorExpression, orr))
+            {
+                return;
+            }
+
+            if (Helpers.Is64Type(resolveOperator.Type, this.Emitter.Resolver))
+            {
+                isLong = true;
+                isLongExpected = true;
+            }
+
+            if (isLong && isLongExpected)
             {
                 this.HandleDecimal(resolveOperator);
                 return;
@@ -425,6 +444,10 @@ namespace Bridge.Translator
 
                         case UnaryOperatorType.Plus:
                             op_name = "clone";
+                            break;
+
+                        case UnaryOperatorType.BitNot:
+                            op_name = "not";
                             break;
 
                         case UnaryOperatorType.Increment:

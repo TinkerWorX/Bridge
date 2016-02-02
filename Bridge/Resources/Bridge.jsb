@@ -14,6 +14,7 @@
   <file name="Math.js" />
   <file name="Integer.js" />
   <file name="Decimal.js" />
+  <file name="Long.js" />
   <file name="Date.js" />
   <file name="TimeSpan.js" />
   <file name="Text/StringBuilder.js" />
@@ -48,6 +49,7 @@
     <include name="Math.js" />
     <include name="Integer.js" />
     <include name="Decimal.js" />
+    <include name="Long.js" />
     <include name="Date.js" />
     <include name="TimeSpan.js" />
     <include name="Text/StringBuilder.js" />

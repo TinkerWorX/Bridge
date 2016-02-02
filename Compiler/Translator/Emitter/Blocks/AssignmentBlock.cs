@@ -148,9 +148,15 @@ namespace Bridge.Translator
             var rr = this.Emitter.Resolver.ResolveNode(assignmentExpression, this.Emitter);
             var orr = rr as OperatorResolveResult;
             bool isDecimal = Helpers.IsDecimalType(rr.Type, this.Emitter.Resolver);
+            bool isLong = Helpers.Is64Type(rr.Type, this.Emitter.Resolver);
             var expectedType = this.Emitter.Resolver.Resolver.GetExpectedType(assignmentExpression);
             bool isDecimalExpected = Helpers.IsDecimalType(expectedType, this.Emitter.Resolver);
+            bool isLongExpected = Helpers.Is64Type(expectedType, this.Emitter.Resolver);
             bool isUserOperator = this.IsUserOperator(orr);
+
+            bool isUint = rr.Type.IsKnownType(KnownTypeCode.UInt16) ||
+                          rr.Type.IsKnownType(KnownTypeCode.UInt32) ||
+                          rr.Type.IsKnownType(KnownTypeCode.UInt64);
 
             var charToString = -1;
 
@@ -180,6 +186,7 @@ namespace Bridge.Translator
             }
 
             if (assignmentExpression.Operator == AssignmentOperatorType.Divide &&
+                !isLong && !isLongExpected &&
                 (
                     (Helpers.IsIntegerType(leftResolverResult.Type, this.Emitter.Resolver) &&
                     Helpers.IsIntegerType(rightResolverResult.Type, this.Emitter.Resolver)) ||
@@ -276,7 +283,7 @@ namespace Bridge.Translator
 
             if (!thisAssignment)
             {
-                if (special || (isDecimal && isDecimalExpected) || isUserOperator)
+                if (special || (isDecimal && isDecimalExpected) || (isLong && isLongExpected) || isUserOperator)
                 {
                     this.Emitter.AssignmentType = AssignmentOperatorType.Assign;
                 }
@@ -324,6 +331,28 @@ namespace Bridge.Translator
                 if (needReturnValue)
                 {
                     this.Write(", " + variable + ")");    
+                }
+
+                return;
+            }
+
+            if (isLong && isLongExpected)
+            {
+                if (this.Emitter.Writers.Count == initCount)
+                {
+                    this.Write(" = ");
+                }
+
+                this.HandleLong(rr, variable, isUint);
+
+                if (this.Emitter.Writers.Count > initCount)
+                {
+                    this.PopWriter();
+                }
+
+                if (needReturnValue)
+                {
+                    this.Write(", " + variable + ")");
                 }
 
                 return;
@@ -385,7 +414,7 @@ namespace Bridge.Translator
                             break;
 
                         case AssignmentOperatorType.ShiftRight:
-                            this.Write(">>");
+                            this.Write(isUint ? ">>>" : ">>");
                             break;
 
                         case AssignmentOperatorType.Subtract:
@@ -444,7 +473,7 @@ namespace Bridge.Translator
                             break;
 
                         case AssignmentOperatorType.ShiftRight:
-                            this.Write("sr");
+                            this.Write(isUint ? "srr" : "sr");
                             break;
 
                         case AssignmentOperatorType.Subtract:
@@ -534,7 +563,7 @@ namespace Bridge.Translator
             }
         }
 
-        private void HandleDecimal(ResolveResult resolveOperator, string variable)
+        private void HandleType(ResolveResult resolveOperator, string variable, string op_name)
         {
             if (this.AssignmentExpression.Operator == AssignmentOperatorType.Assign)
             {
@@ -544,9 +573,9 @@ namespace Bridge.Translator
                 }
                 else
                 {
-                    new ExpressionListBlock(this.Emitter, new Expression[] { this.AssignmentExpression.Right }, null).Emit();    
+                    new ExpressionListBlock(this.Emitter, new Expression[] { this.AssignmentExpression.Right }, null).Emit();
                 }
-                
+
                 return;
             }
 
@@ -568,58 +597,7 @@ namespace Bridge.Translator
                 {
                     this.Write(Bridge.Translator.Emitter.ROOT + ".Nullable.");
                     string action = "lift2";
-                    string op_name = null;
-
-                    switch (assigmentType)
-                    {
-                        case BinaryOperatorType.GreaterThan:
-                            op_name = "gt";
-                            break;
-
-                        case BinaryOperatorType.GreaterThanOrEqual:
-                            op_name = "gte";
-                            break;
-
-                        case BinaryOperatorType.Equality:
-                            op_name = "equals";
-                            break;
-
-                        case BinaryOperatorType.InEquality:
-                            op_name = "ne";
-                            break;
-
-                        case BinaryOperatorType.LessThan:
-                            op_name = "lt";
-                            break;
-
-                        case BinaryOperatorType.LessThanOrEqual:
-                            op_name = "lte";
-                            break;
-
-                        case BinaryOperatorType.Add:
-                            op_name = "add";
-                            break;
-
-                        case BinaryOperatorType.Subtract:
-                            op_name = "sub";
-                            break;
-
-                        case BinaryOperatorType.Multiply:
-                            op_name = "mul";
-                            break;
-
-                        case BinaryOperatorType.Divide:
-                            op_name = "div";
-                            break;
-
-                        case BinaryOperatorType.Modulus:
-                            op_name = "mod";
-                            break;
-
-                        default:
-                            throw new ArgumentOutOfRangeException();
-                    }
-
+                    
                     this.Write(action);
                     this.WriteOpenParentheses();
                     this.WriteScript(op_name);
@@ -630,9 +608,9 @@ namespace Bridge.Translator
                     }
                     else
                     {
-                        new ExpressionListBlock(this.Emitter, new Expression[] {this.AssignmentExpression.Left, this.AssignmentExpression.Right}, null).Emit();
+                        new ExpressionListBlock(this.Emitter, new Expression[] { this.AssignmentExpression.Left, this.AssignmentExpression.Right }, null).Emit();
                     }
-                    this.WriteCloseParentheses();        
+                    this.WriteCloseParentheses();
                 }
                 else if (!string.IsNullOrWhiteSpace(inline))
                 {
@@ -655,12 +633,154 @@ namespace Bridge.Translator
                     }
                     else
                     {
-                        new ExpressionListBlock(this.Emitter, new Expression[] { this.AssignmentExpression.Left, this.AssignmentExpression.Right }, null).Emit();    
+                        new ExpressionListBlock(this.Emitter, new Expression[] { this.AssignmentExpression.Left, this.AssignmentExpression.Right }, null).Emit();
                     }
-                    
+
                     this.WriteCloseParentheses();
                 }
             }
+        }
+
+        private void HandleDecimal(ResolveResult resolveOperator, string variable)
+        {
+            var assigmentType = Helpers.TypeOfAssignment(this.AssignmentExpression.Operator);
+
+            string op_name = null;
+
+            if (this.AssignmentExpression.Operator != AssignmentOperatorType.Assign)
+            {
+                switch (assigmentType)
+                {
+                    case BinaryOperatorType.GreaterThan:
+                        op_name = "gt";
+                        break;
+
+                    case BinaryOperatorType.GreaterThanOrEqual:
+                        op_name = "gte";
+                        break;
+
+                    case BinaryOperatorType.Equality:
+                        op_name = "equals";
+                        break;
+
+                    case BinaryOperatorType.InEquality:
+                        op_name = "ne";
+                        break;
+
+                    case BinaryOperatorType.LessThan:
+                        op_name = "lt";
+                        break;
+
+                    case BinaryOperatorType.LessThanOrEqual:
+                        op_name = "lte";
+                        break;
+
+                    case BinaryOperatorType.Add:
+                        op_name = "add";
+                        break;
+
+                    case BinaryOperatorType.Subtract:
+                        op_name = "sub";
+                        break;
+
+                    case BinaryOperatorType.Multiply:
+                        op_name = "mul";
+                        break;
+
+                    case BinaryOperatorType.Divide:
+                        op_name = "div";
+                        break;
+
+                    case BinaryOperatorType.Modulus:
+                        op_name = "mod";
+                        break;
+
+                    default:
+                        throw new ArgumentOutOfRangeException();
+                }
+            }
+            this.HandleType(resolveOperator, variable, op_name);
+        }
+
+        private void HandleLong(ResolveResult resolveOperator, string variable, bool isUnsigned)
+        {
+            var assigmentType = Helpers.TypeOfAssignment(this.AssignmentExpression.Operator);
+
+            string op_name = null;
+            if (this.AssignmentExpression.Operator != AssignmentOperatorType.Assign)
+            {
+                switch (assigmentType)
+                {
+                    case BinaryOperatorType.GreaterThan:
+                        op_name = "gt";
+                        break;
+
+                    case BinaryOperatorType.GreaterThanOrEqual:
+                        op_name = "gte";
+                        break;
+
+                    case BinaryOperatorType.Equality:
+                        op_name = "equals";
+                        break;
+
+                    case BinaryOperatorType.InEquality:
+                        op_name = "ne";
+                        break;
+
+                    case BinaryOperatorType.LessThan:
+                        op_name = "lt";
+                        break;
+
+                    case BinaryOperatorType.LessThanOrEqual:
+                        op_name = "lte";
+                        break;
+
+                    case BinaryOperatorType.Add:
+                        op_name = "add";
+                        break;
+
+                    case BinaryOperatorType.Subtract:
+                        op_name = "sub";
+                        break;
+
+                    case BinaryOperatorType.Multiply:
+                        op_name = "mul";
+                        break;
+
+                    case BinaryOperatorType.Divide:
+                        op_name = "div";
+                        break;
+
+                    case BinaryOperatorType.Modulus:
+                        op_name = "mod";
+                        break;
+
+                    case BinaryOperatorType.BitwiseAnd:
+                        op_name = "and";
+                        break;
+
+                    case BinaryOperatorType.BitwiseOr:
+                        op_name = "or";
+                        break;
+
+                    case BinaryOperatorType.ExclusiveOr:
+                        op_name = "xor";
+                        break;
+
+                    case BinaryOperatorType.ShiftLeft:
+                        op_name = "shl";
+                        break;
+
+                    case BinaryOperatorType.ShiftRight:
+                        op_name = isUnsigned ? "shru" : "shr";
+                        break;
+
+                    default:
+                        throw new ArgumentOutOfRangeException();
+                }
+            }
+
+            this.HandleType(resolveOperator, variable, op_name);
         }
     }
 }

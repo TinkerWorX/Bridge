@@ -104,6 +104,13 @@ namespace Bridge.Translator
                     return level;
                 }
 
+                level = ConversionBlock.CheckLongConversion(block, expression, rr, expectedType, conversion) ? (level + 1) : level;
+
+                if (Helpers.Is64Type(expectedType, block.Emitter.Resolver) && !conversion.IsUserDefined)
+                {
+                    return level;
+                }
+
                 if (conversion == null)
                 {
                     return level;
@@ -119,7 +126,7 @@ namespace Bridge.Translator
                 {
                     return level;
                 }
-                bool isLifted = conversion.IsLifted && !isNumLifted && !(block is CastBlock) && !Helpers.IsDecimalType(expectedType, block.Emitter.Resolver);
+                bool isLifted = conversion.IsLifted && !isNumLifted && !(block is CastBlock) && !Helpers.IsDecimalType(expectedType, block.Emitter.Resolver) && !Helpers.Is64Type(expectedType, block.Emitter.Resolver);
                 if (isLifted)
                 {
                     level++;
@@ -209,6 +216,18 @@ namespace Bridge.Translator
                         level++;
                     }
 
+                    if (Helpers.Is64Type(arg.Type, block.Emitter.Resolver, arg.IsParams) && !Helpers.Is64Type(rr.Type, block.Emitter.Resolver) && !expression.IsNull)
+                    {
+                        var isUint = Helpers.IsULongType(arg.Type, block.Emitter.Resolver, arg.IsParams);
+                        block.Write("Bridge." + (isUint ? "ULong" : "Long"));
+                        if (NullableType.IsNullable(arg.Type) && ConversionBlock.ShouldBeLifted(expression))
+                        {
+                            block.Write(".lift");
+                        }
+                        block.WriteOpenParentheses();
+                        level++;
+                    }
+
                     return level;
                 }
                 // Still returns true if Nullable.lift( was written.
@@ -221,12 +240,14 @@ namespace Bridge.Translator
             return 0;
         }
 
-        private static bool CheckDecimalConversion(ConversionBlock block, Expression expression, ResolveResult rr, IType expectedType, Conversion conversion)
+        private delegate bool IsType(IType type, IMemberResolver resolver, bool allowArray = false);
+
+        private static bool CheckTypeConversion(ConversionBlock block, Expression expression, ResolveResult rr, IType expectedType, Conversion conversion, string typeName, IsType isType)
         {
             if (conversion.IsUserDefined)
             {
                 var m = conversion.Method;
-                if (Helpers.IsDecimalType(m.ReturnType, block.Emitter.Resolver))
+                if (isType(m.ReturnType, block.Emitter.Resolver))
                 {
                     return false;
                 }
@@ -243,14 +264,14 @@ namespace Bridge.Translator
                     var m = methodResolveResult.Member as IMethod;
                     var arg = m.Parameters[index < m.Parameters.Count ? index : (m.Parameters.Count - 1)];
 
-                    if (Helpers.IsDecimalType(arg.Type, block.Emitter.Resolver, arg.IsParams) && !Helpers.IsDecimalType(rr.Type, block.Emitter.Resolver))
+                    if (isType(arg.Type, block.Emitter.Resolver, arg.IsParams) && !isType(rr.Type, block.Emitter.Resolver))
                     {
                         if (expression.IsNull)
                         {
                             return false;
                         }
 
-                        block.Write("Bridge.Decimal");
+                        block.Write(typeName);
                         if (NullableType.IsNullable(arg.Type) && ConversionBlock.ShouldBeLifted(expression))
                         {
                             block.Write(".lift");
@@ -266,14 +287,14 @@ namespace Bridge.Translator
             {
                 var namedArgResolveResult = block.Emitter.Resolver.ResolveNode(namedArgExpression, block.Emitter) as NamedArgumentResolveResult;
 
-                if (Helpers.IsDecimalType(namedArgResolveResult.Type, block.Emitter.Resolver) && !Helpers.IsDecimalType(rr.Type, block.Emitter.Resolver))
+                if (isType(namedArgResolveResult.Type, block.Emitter.Resolver) && !isType(rr.Type, block.Emitter.Resolver))
                 {
                     if (expression.IsNull)
                     {
                         return false;
                     }
 
-                    block.Write("Bridge.Decimal");
+                    block.Write(typeName);
                     if (NullableType.IsNullable(namedArgResolveResult.Type) && ConversionBlock.ShouldBeLifted(expression))
                     {
                         block.Write(".lift");
@@ -288,14 +309,14 @@ namespace Bridge.Translator
             {
                 var namedResolveResult = block.Emitter.Resolver.ResolveNode(namedExpression, block.Emitter);
 
-                if (Helpers.IsDecimalType(namedResolveResult.Type, block.Emitter.Resolver) && !Helpers.IsDecimalType(rr.Type, block.Emitter.Resolver))
+                if (isType(namedResolveResult.Type, block.Emitter.Resolver) && !isType(rr.Type, block.Emitter.Resolver))
                 {
                     if (expression.IsNull)
                     {
                         return false;
                     }
 
-                    block.Write("Bridge.Decimal");
+                    block.Write(typeName);
                     if (NullableType.IsNullable(namedResolveResult.Type) && ConversionBlock.ShouldBeLifted(expression))
                     {
                         block.Write(".lift");
@@ -311,14 +332,14 @@ namespace Bridge.Translator
                 var idx = binaryOpExpr.Left == expression ? 0 : 1;
                 var binaryOpRr = block.Emitter.Resolver.ResolveNode(binaryOpExpr, block.Emitter) as OperatorResolveResult;
 
-                if (binaryOpRr != null && Helpers.IsDecimalType(binaryOpRr.Operands[idx].Type, block.Emitter.Resolver) && !Helpers.IsDecimalType(rr.Type, block.Emitter.Resolver))
+                if (binaryOpRr != null && isType(binaryOpRr.Operands[idx].Type, block.Emitter.Resolver) && !isType(rr.Type, block.Emitter.Resolver))
                 {
                     if (expression.IsNull)
                     {
                         return false;
                     }
 
-                    block.Write("Bridge.Decimal");
+                    block.Write(typeName);
                     if (NullableType.IsNullable(binaryOpRr.Operands[idx].Type) && ConversionBlock.ShouldBeLifted(expression))
                     {
                         block.Write(".lift");
@@ -334,14 +355,14 @@ namespace Bridge.Translator
                 var idx = conditionalExpr.TrueExpression == expression ? 0 : 1;
                 var conditionalrr = block.Emitter.Resolver.ResolveNode(conditionalExpr, block.Emitter) as OperatorResolveResult;
 
-                if (conditionalrr != null && Helpers.IsDecimalType(conditionalrr.Operands[idx].Type, block.Emitter.Resolver) && !Helpers.IsDecimalType(rr.Type, block.Emitter.Resolver))
+                if (conditionalrr != null && isType(conditionalrr.Operands[idx].Type, block.Emitter.Resolver) && !isType(rr.Type, block.Emitter.Resolver))
                 {
                     if (expression.IsNull)
                     {
                         return false;
                     }
 
-                    block.Write("Bridge.Decimal");
+                    block.Write(typeName);
                     if (NullableType.IsNullable(conditionalrr.Operands[idx].Type) && ConversionBlock.ShouldBeLifted(expression))
                     {
                         block.Write(".lift");
@@ -356,14 +377,14 @@ namespace Bridge.Translator
             {
                 var assigmentRr = block.Emitter.Resolver.ResolveNode(assignmentExpr, block.Emitter) as OperatorResolveResult;
 
-                if (Helpers.IsDecimalType(assigmentRr.Operands[1].Type, block.Emitter.Resolver) && !Helpers.IsDecimalType(rr.Type, block.Emitter.Resolver))
+                if (isType(assigmentRr.Operands[1].Type, block.Emitter.Resolver) && !isType(rr.Type, block.Emitter.Resolver))
                 {
                     if (expression.IsNull)
                     {
                         return false;
                     }
 
-                    block.Write("Bridge.Decimal");
+                    block.Write(typeName);
                     if (NullableType.IsNullable(assigmentRr.Operands[1].Type) && ConversionBlock.ShouldBeLifted(expression))
                     {
                         block.Write(".lift");
@@ -417,14 +438,14 @@ namespace Bridge.Translator
                     }
                 }
 
-                if (elementType != null && Helpers.IsDecimalType(elementType, block.Emitter.Resolver) && !Helpers.IsDecimalType(rr.Type, block.Emitter.Resolver))
+                if (elementType != null && isType(elementType, block.Emitter.Resolver) && !isType(rr.Type, block.Emitter.Resolver))
                 {
                     if (expression.IsNull)
                     {
                         return false;
                     }
 
-                    block.Write("Bridge.Decimal");
+                    block.Write(typeName);
                     if (NullableType.IsNullable(elementType) && ConversionBlock.ShouldBeLifted(expression))
                     {
                         block.Write(".lift");
@@ -434,7 +455,7 @@ namespace Bridge.Translator
                 }
             }
 
-            if (Helpers.IsDecimalType(expectedType, block.Emitter.Resolver) && !Helpers.IsDecimalType(rr.Type, block.Emitter.Resolver))
+            if (isType(expectedType, block.Emitter.Resolver) && !isType(rr.Type, block.Emitter.Resolver))
             {
                 var castExpr = expression.Parent as CastExpression;
                 ResolveResult castTypeRr = null;
@@ -443,14 +464,14 @@ namespace Bridge.Translator
                     castTypeRr = block.Emitter.Resolver.ResolveNode(castExpr.Type, block.Emitter);
                 }
 
-                if (castTypeRr == null || !Helpers.IsDecimalType(castTypeRr.Type, block.Emitter.Resolver))
+                if (castTypeRr == null || !isType(castTypeRr.Type, block.Emitter.Resolver))
                 {
                     if (expression.IsNull)
                     {
                         return false;
                     }
 
-                    block.Write("Bridge.Decimal");
+                    block.Write(typeName);
                     if (NullableType.IsNullable(expectedType) && ConversionBlock.ShouldBeLifted(expression))
                     {
                         block.Write(".lift");
@@ -461,6 +482,17 @@ namespace Bridge.Translator
             }
 
             return false;
+        }
+
+        private static bool CheckDecimalConversion(ConversionBlock block, Expression expression, ResolveResult rr, IType expectedType, Conversion conversion)
+        {
+            return CheckTypeConversion(block, expression, rr, expectedType, conversion, "Bridge.Decimal", Helpers.IsDecimalType);
+        }
+
+        private static bool CheckLongConversion(ConversionBlock block, Expression expression, ResolveResult rr, IType expectedType, Conversion conversion)
+        {
+            return CheckTypeConversion(block, expression, rr, expectedType, conversion, "Bridge.Long", Helpers.IsLongType) ||
+                   CheckTypeConversion(block, expression, rr, expectedType, conversion, "Bridge.ULong", Helpers.IsULongType);
         }
 
         private static bool ShouldBeLifted(Expression expr)
